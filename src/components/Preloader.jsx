@@ -10,7 +10,7 @@ export default function Preloader({ onFinish }) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const duration = 4000;
+    const duration = 9000;
     const start = Date.now();
 
     const progressTimer = setInterval(() => {
