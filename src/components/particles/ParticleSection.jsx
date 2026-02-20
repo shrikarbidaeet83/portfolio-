@@ -360,7 +360,7 @@ explosion[i + 1] += wave * 1.2;
     );
 
     if (isModelStage) {
-      pointsRef.current.rotation.y += 0.002;
+      pointsRef.current.rotation.y += 0.010;
     }
 
     const s = isMobile ? 0.9 : 1;
