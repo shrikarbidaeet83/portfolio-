@@ -1,0 +1,111 @@
+.preloader {
+  position: fixed;
+  inset: 0;
+  background: #06070A;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.loading-text {
+  color: white;
+  font-family: "Courier New", monospace;
+  margin-bottom: 40px;
+}
+
+.loading-dots {
+  animation: dots-blink 1.2s ease-in-out infinite;
+}
+
+.marquee {
+  position: relative;
+  height: 60px;
+  width: 80%;
+  background: white;
+  overflow: hidden;
+}
+
+/* BOTH animate */
+.runner,
+.bull {
+  position: absolute;
+  height: 100%;
+  animation: scroll-left 2s linear infinite;
+}
+
+/* runner behind */
+.runner {
+  z-index: 2;
+}
+
+/* bull slightly ahead */
+.bull {
+  z-index: 1;
+  animation-delay: 0.1s;
+}
+
+/* tunnel fixed */
+.tunnel {
+  position: absolute;
+  left: 0;
+  height: 100%;
+  z-index: 3;
+}
+
+.progress-wrap {
+  position: fixed;
+  bottom: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50vw;
+}
+
+.progress-text {
+  margin: 0 0 8px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  font-family: monospace;
+  letter-spacing: 2px;
+  text-align: right;
+}
+
+.progress-line {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50vw;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, #7b61ff, #00e5ff, #ffffff);
+  box-shadow: 0 0 10px #7b61ff, 0 0 20px #00e5ff;
+  transition: width 0.3s ease-out;
+}
+
+@keyframes scroll-left {
+  0% {
+    transform: translateX(1400%);
+  }
+  100% {
+    transform: translateX(-120%);
+  }
+}
+
+@keyframes dots-blink {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
