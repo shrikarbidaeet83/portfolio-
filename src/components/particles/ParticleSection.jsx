@@ -10,7 +10,7 @@ import AsteroidField from "../particles/AsteroidField";
 
 gsap.registerPlugin(ScrollTrigger);
 
-function ParticleModel() {
+function ParticleModel({ onReady }) {
   const m1 = useGLTF("/about.glb");
   const m2 = useGLTF("/model.glb");
   const m3 = useGLTF("/react.glb");
@@ -28,6 +28,7 @@ function ParticleModel() {
   const stageColorsRef = useRef([]);
   const dustColorsRef = useRef();
   const explosionColorsRef = useRef();
+  const readySentRef = useRef(false);
 
   useEffect(() => {
     const getModelPositions = (scene) => {
@@ -209,6 +210,11 @@ explosion[i + 1] += wave * 1.2;
       scrub: true,
       onUpdate: (self) => (scrollProgress.current = self.progress),
     });
+
+    if (!readySentRef.current) {
+      readySentRef.current = true;
+      onReady?.();
+    }
   }, []);
 
   useFrame((state) => {
@@ -375,7 +381,7 @@ explosion[i + 1] += wave * 1.2;
   );
 }
 
-export default function App() {
+export default function App({ onReady }) {
   return (
     <div style={{ background: "#000" }}>
       <div style={{ height: "900vh", position: "relative" }}>
@@ -418,7 +424,7 @@ export default function App() {
 
 
         <AsteroidField />
-          <ParticleModel />
+          <ParticleModel onReady={onReady} />
           <EffectComposer>
             <Bloom intensity={0.1} luminanceThreshold={0} />
           </EffectComposer>

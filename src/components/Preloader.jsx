@@ -5,8 +5,7 @@ import runnerGif from "../assets/W0gD.gif";
 import bullGif from "../assets/bull.gif";
 import tunnelImg from "../assets/tunnel2.png";
 
-export default function Preloader({ onFinish }) {
-  const [visible, setVisible] = useState(true);
+export default function Preloader({ isReady = false }) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
@@ -14,24 +13,20 @@ export default function Preloader({ onFinish }) {
     const start = Date.now();
 
     const progressTimer = setInterval(() => {
-      const elapsed = Date.now() - start;
-      const pct = Math.min((elapsed / duration) * 100, 100);
-      setProgress(pct);
+      setProgress((prev) => {
+        if (isReady) return 100;
+
+        const elapsed = Date.now() - start;
+        // Move naturally but hold before completion until 3D scene is ready.
+        const pct = Math.min((elapsed / duration) * 100, 95);
+        return Math.max(prev, pct);
+      });
     }, 50);
 
-    const timer = setTimeout(() => {
-      setProgress(100);
-      setVisible(false);
-      onFinish?.();
-    }, duration);
-
     return () => {
-      clearTimeout(timer);
       clearInterval(progressTimer);
     };
-  }, []);
-
-  if (!visible) return null;
+  }, [isReady]);
 
   return (
    <div className="preloader">
