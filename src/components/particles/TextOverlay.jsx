@@ -96,6 +96,14 @@ const aboutBlocks = [
     title: "PROJECTS",
     isProjects: true,
     projects: [
+       {
+        name: "Rahri — Real Estate Web Platform",
+        summary:
+          "Developed a modern real estate website using Next.js and React.",
+        tech: "Next.js | React",
+        live: "https://rahri.netlify.app",
+      },
+      
       {
         name: "Purple Onion Restaurant",
         summary:
@@ -110,13 +118,7 @@ const aboutBlocks = [
         tech: "HTML, CSS, Bootstrap, JavaScript",
         live: "https://www.arrowplumbing.net/",
       },
-      {
-        name: "Next.js Project - Current",
-        summary:
-          "Modern web application focused on scalable frontend architecture.",
-        tech: "Next.js, React.js",
-        live: "Coming Soon",
-      },
+     
     ],
   },
 ];
@@ -137,7 +139,7 @@ export default function TextOverlay() {
       {
         threshold: 0.18,
         rootMargin: "0px 0px -8% 0px",
-      }
+      },
     );
 
     cardRefs.current.forEach((card) => {

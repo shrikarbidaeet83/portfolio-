@@ -9,44 +9,49 @@ export default function Preloader({ isReady = false }) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
+    // use a requestAnimationFrame loop so the percentage can advance smoothly
     const duration = 7000;
-    const start = Date.now();
+    const start = performance.now();
+    let frame = 0;
 
-    const progressTimer = setInterval(() => {
-      setProgress((prev) => {
-        if (isReady) return 100;
+    const tick = (now) => {
+      if (isReady) {
+        // once the 3D scene is ready we can immediately finish
+        setProgress(100);
+        return;
+      }
 
-        const elapsed = Date.now() - start;
-        // Move naturally but hold before completion until 3D scene is ready.
-        const pct = Math.min((elapsed / duration) * 100, 95);
-        return Math.max(prev, pct);
-      });
-    }, 50);
+      const elapsed = now - start;
+      const pct = Math.min((elapsed / duration) * 100, 95);
+      setProgress((prev) => Math.max(prev, pct));
+      frame = requestAnimationFrame(tick);
+    };
+
+    frame = requestAnimationFrame(tick);
 
     return () => {
-      clearInterval(progressTimer);
+      cancelAnimationFrame(frame);
     };
   }, [isReady]);
 
   return (
-   <div className="preloader">
-  <h1 className="loading-text">
-    Loading<span className="loading-dots">...</span>
-  </h1>
+    <div className="preloader">
+      <h1 className="loading-text">
+        Loading<span className="loading-dots">...</span>
+      </h1>
 
-  <div className="marquee">
-    <img className="tunnel" src={tunnelImg} alt="" />
-    <img className="runner" src={runnerGif} alt="" />
-    <img className="bull" src={bullGif} alt="" />
-  </div>
+      <div className="marquee">
+        <img className="tunnel" src={tunnelImg} alt="" />
+        <img className="runner" src={runnerGif} alt="" />
+        <img className="bull" src={bullGif} alt="" />
+      </div>
 
-  <div className="progress-wrap">
-    <p className="progress-text">{Math.round(progress)}%</p>
-    <div className="progress-line">
-      <div className="progress-fill" style={{ width: `${progress}%` }} />
+      <div className="progress-wrap">
+        <p className="progress-text">{Math.round(progress)}%</p>
+        <div className="progress-line">
+          <div className="progress-fill" style={{ width: `${progress}%` }} />
+        </div>
+      </div>
     </div>
-  </div>
-</div>
-
   );
 }

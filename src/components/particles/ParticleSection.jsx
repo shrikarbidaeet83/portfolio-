@@ -7,7 +7,6 @@ import ScrollTrigger from "gsap/ScrollTrigger";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import AsteroidField from "../particles/AsteroidField";
 
-
 gsap.registerPlugin(ScrollTrigger);
 
 function ParticleModel({ onReady }) {
@@ -58,56 +57,42 @@ function ParticleModel({ onReady }) {
       cloud[i + 1] = Math.random() * 0.6 - 1.5;
       cloud[i + 2] = Math.sin(a) * r * 1.6;
 
+      const spread = 15;
 
+      const x = (Math.random() - 0.5) * spread;
+      const z = (Math.random() - 0.5) * spread;
 
+      const y = Math.sin(x * 0.5) + Math.cos(z * 0.5);
 
-const spread = 15;
-
-const x = (Math.random() - 0.5) * spread;
-const z = (Math.random() - 0.5) * spread;
-
-const y =
-  Math.sin(x * 0.5) +
-  Math.cos(z * 0.5);
-
-dust[i]     = x;
-dust[i + 1] = y;
-dust[i + 2] = z;
-
-
-
+      dust[i] = x;
+      dust[i + 1] = y;
+      dust[i + 2] = z;
 
       const t = i * 0.0004;
       spiral[i] = Math.cos(t) * t * 1.3;
       spiral[i + 1] = (Math.random() - 0.5) * 1;
       spiral[i + 2] = Math.sin(t) * t * 1.3;
 
-// TORUS RING FIELD
-const spreadXY = 20;
-const spreadZ = 25;
+      // TORUS RING FIELD
+      const spreadXY = 20;
+      const spreadZ = 25;
 
-explosion[i]     = (Math.random() - 0.5) * spreadXY;
-explosion[i + 1] = (Math.random() - 0.5) * spreadXY;
-explosion[i + 2] = (Math.random() - 0.5) * spreadZ;
+      explosion[i] = (Math.random() - 0.5) * spreadXY;
+      explosion[i + 1] = (Math.random() - 0.5) * spreadXY;
+      explosion[i + 2] = (Math.random() - 0.5) * spreadZ;
 
-// add wave distortion for cool shape
-const wave =
-  Math.sin(explosion[i] * 0.3) +
-  Math.cos(explosion[i + 2] * 0.3);
+      // add wave distortion for cool shape
+      const wave =
+        Math.sin(explosion[i] * 0.3) + Math.cos(explosion[i + 2] * 0.3);
 
-explosion[i + 1] += wave * 1.2;
-
-
-
-
-
-
-
-
+      explosion[i + 1] += wave * 1.2;
     }
 
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(cloud.slice(), 3));
+    geometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(cloud.slice(), 3),
+    );
 
     const colors = new Float32Array(count);
     const dustColors = new Float32Array(count);
@@ -175,7 +160,7 @@ explosion[i + 1] += wave * 1.2;
       mixedColor.lerpColors(
         explosionPalette[eIdxA],
         explosionPalette[eIdxB],
-        eSeedB
+        eSeedB,
       );
       const eIntensity = 0.8 + eSeedC * 0.38;
 
@@ -208,7 +193,12 @@ explosion[i + 1] += wave * 1.2;
       start: "top top",
       end: "bottom bottom",
       scrub: true,
-      onUpdate: (self) => (scrollProgress.current = self.progress),
+      onUpdate: (self) => {
+        // update progress inside rAF to decouple from scroll event
+        requestAnimationFrame(() => {
+          scrollProgress.current = self.progress;
+        });
+      },
     });
 
     if (!readySentRef.current) {
@@ -228,7 +218,7 @@ explosion[i + 1] += wave * 1.2;
     smoothScroll.current = THREE.MathUtils.lerp(
       smoothScroll.current,
       scrollProgress.current,
-      0.06
+      0.06,
     );
 
     const progress = smoothScroll.current;
@@ -271,10 +261,7 @@ explosion[i + 1] += wave * 1.2;
       const y = THREE.MathUtils.lerp(from[i + 1], to[i + 1], morphProgress);
       const z = THREE.MathUtils.lerp(from[i + 2], to[i + 2], morphProgress);
 
-     const float = !isModelStage
-  ? Math.sin(time * 1.2 + i * 0.02) * 0.06
-  : 0;
-
+      const float = !isModelStage ? Math.sin(time * 1.2 + i * 0.02) * 0.06 : 0;
 
       pos[i] = x;
       pos[i + 1] = y + float;
@@ -282,39 +269,43 @@ explosion[i + 1] += wave * 1.2;
 
       // Smoothly blend colors across shape transitions with galaxy tint variation.
       const fromR =
-        stage === 2 ? dustColors[i] : stage === 6 ? explosionColors[i] : fromColor.r;
+        stage === 2
+          ? dustColors[i]
+          : stage === 6
+            ? explosionColors[i]
+            : fromColor.r;
       const fromG =
         stage === 2
           ? dustColors[i + 1]
           : stage === 6
-          ? explosionColors[i + 1]
-          : fromColor.g;
+            ? explosionColors[i + 1]
+            : fromColor.g;
       const fromB =
         stage === 2
           ? dustColors[i + 2]
           : stage === 6
-          ? explosionColors[i + 2]
-          : fromColor.b;
+            ? explosionColors[i + 2]
+            : fromColor.b;
 
       const nextStage = stage + 1;
       const toR =
         nextStage === 2
           ? dustColors[i]
           : nextStage === 6
-          ? explosionColors[i]
-          : toColor.r;
+            ? explosionColors[i]
+            : toColor.r;
       const toG =
         nextStage === 2
           ? dustColors[i + 1]
           : nextStage === 6
-          ? explosionColors[i + 1]
-          : toColor.g;
+            ? explosionColors[i + 1]
+            : toColor.g;
       const toB =
         nextStage === 2
           ? dustColors[i + 2]
           : nextStage === 6
-          ? explosionColors[i + 2]
-          : toColor.b;
+            ? explosionColors[i + 2]
+            : toColor.b;
 
       const twinkle = 0.9 + Math.sin(time * 1.6 + i * 0.015) * 0.1;
       col[i] = THREE.MathUtils.lerp(fromR, toR, morphProgress) * twinkle;
@@ -344,23 +335,23 @@ explosion[i + 1] += wave * 1.2;
     const blendedX = THREE.MathUtils.lerp(
       currentTargetX,
       nextTargetX,
-      morphProgress
+      morphProgress,
     );
 
     pointsRef.current.position.x = THREE.MathUtils.lerp(
       pointsRef.current.position.x,
       isMobile ? 0 : blendedX,
-      0.08
+      0.08,
     );
 
     pointsRef.current.position.y = THREE.MathUtils.lerp(
       pointsRef.current.position.y,
       baseY,
-      0.08
+      0.08,
     );
 
     if (isModelStage) {
-      pointsRef.current.rotation.y += 0.010;
+      pointsRef.current.rotation.y += 0.01;
     }
 
     const s = isMobile ? 0.9 : 1;
@@ -386,44 +377,38 @@ export default function App({ onReady }) {
     <div style={{ background: "#000" }}>
       <div style={{ height: "900vh", position: "relative" }}>
         <Canvas
-  style={{
-    position: "sticky",
-    top: 0,
-    width: "100vw",
-    height: "100vh",
-    display: "block",
-  }}
-
-
+          pixelRatio={
+            typeof window !== "undefined"
+              ? Math.min(window.devicePixelRatio, 1.5)
+              : 1
+          }
+          gl={{ antialias: false, powerPreference: "low-power" }}
+          style={{
+            position: "sticky",
+            top: 0,
+            width: "100vw",
+            height: "100vh",
+            display: "block",
+          }}
           camera={{ position: [2.6, 0.8, 4], fov: 50 }}
         >
+          <ambientLight intensity={0.25} />
 
+          <directionalLight
+            position={[-2, 9, -1]}
+            intensity={1.4}
+            color="#fe6344"
+          />
 
-<ambientLight intensity={0.25} />
+          <directionalLight
+            position={[4, -2, -6]}
+            intensity={0.7}
+            color="#6b7cff"
+          />
 
-<directionalLight
-  position={[-2, 9, -1]}
-  intensity={1.4}
-  color="#fe6344"
-/>
+          <directionalLight position={[0, 3, 6]} intensity={0.5} />
 
-<directionalLight
-  position={[4, -2, -6]}
-  intensity={0.7}
-  color="#6b7cff"
-/>
-
-<directionalLight
-  position={[0, 3, 6]}
-  
-  intensity={0.5}
-/>
-
-
-
-
-
-        <AsteroidField />
+          <AsteroidField />
           <ParticleModel onReady={onReady} />
           <EffectComposer>
             <Bloom intensity={0.1} luminanceThreshold={0} />
