@@ -1,16 +1,72 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import ScrollTrigger from "gsap/ScrollTrigger";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import AsteroidField from "../particles/AsteroidField";
 
+const MODEL_URLS = ["/about.glb", "/model.glb", "/react.glb", "/project.glb"];
+const SEGMENTS = 8;
+const HOLD_AMOUNT = 0.35;
 
 gsap.registerPlugin(ScrollTrigger);
+ScrollTrigger.config({ ignoreMobileResize: true });
 
-function ParticleModel({ onReady }) {
+const lerp = (a, b, t) => a + (b - a) * t;
+
+function getQualitySettings() {
+  const width = typeof window !== "undefined" ? window.innerWidth : 1366;
+  const memory =
+    typeof navigator !== "undefined" && navigator.deviceMemory
+      ? navigator.deviceMemory
+      : 8;
+  const cores =
+    typeof navigator !== "undefined" && navigator.hardwareConcurrency
+      ? navigator.hardwareConcurrency
+      : 8;
+
+  const constrained = memory <= 4 || cores <= 6;
+  const veryLargeScreen = width >= 1700;
+  const largeScreen = width >= 1280;
+
+  if (veryLargeScreen || constrained) {
+    return {
+      dpr: [1, 1],
+      floatAmplitude: 0.04,
+      rotationSpeed: 0.006,
+      colorStride: 2,
+      bloom: 0.06,
+      positionLerp: 0.1,
+      scrollLerp: 0.08,
+    };
+  }
+
+  if (largeScreen) {
+    return {
+      dpr: [1, 1.2],
+      floatAmplitude: 0.045,
+      rotationSpeed: 0.0075,
+      colorStride: 2,
+      bloom: 0.08,
+      positionLerp: 0.09,
+      scrollLerp: 0.08,
+    };
+  }
+
+  return {
+    dpr: [1, 1.4],
+    floatAmplitude: 0.055,
+    rotationSpeed: 0.01,
+    colorStride: 1,
+    bloom: 0.1,
+    positionLerp: 0.08,
+    scrollLerp: 0.06,
+  };
+}
+
+function ParticleModel({ onReady, quality }) {
   const m1 = useGLTF("/about.glb");
   const m2 = useGLTF("/model.glb");
   const m3 = useGLTF("/react.glb");
@@ -20,9 +76,11 @@ function ParticleModel({ onReady }) {
 
   const pointsRef = useRef();
   const geometryRef = useRef();
+  const floatPhaseRef = useRef();
 
   const scrollProgress = useRef(0);
   const smoothScroll = useRef(0);
+  const frameCount = useRef(0);
 
   const shapesRef = useRef([]);
   const stageColorsRef = useRef([]);
@@ -33,14 +91,25 @@ function ParticleModel({ onReady }) {
   useEffect(() => {
     const getModelPositions = (scene) => {
       let mesh;
-      scene.traverse((c) => c.isMesh && (mesh = c));
-      return mesh.geometry.attributes.position.array;
+      scene.traverse((c) => {
+        if (c.isMesh && c.geometry?.attributes?.position?.array) mesh = c;
+      });
+      return mesh?.geometry?.attributes?.position?.array || null;
     };
 
-    const model1 = getModelPositions(m1.scene);
-    const model2 = getModelPositions(m2.scene);
-    const model3 = getModelPositions(m3.scene);
-    const model4 = getModelPositions(m4.scene);
+    const rawModels = [
+      getModelPositions(m1.scene),
+      getModelPositions(m2.scene),
+      getModelPositions(m3.scene),
+      getModelPositions(m4.scene),
+    ];
+
+    if (rawModels.some((model) => !model)) return undefined;
+
+    const model1 = rawModels[0];
+    const model2 = rawModels[1];
+    const model3 = rawModels[2];
+    const model4 = rawModels[3];
 
     const count = model1.length;
     const makeBuffer = () => new Float32Array(count);
@@ -49,8 +118,10 @@ function ParticleModel({ onReady }) {
     const dust = makeBuffer();
     const spiral = makeBuffer();
     const explosion = makeBuffer();
+    const floatPhase = new Float32Array(count / 3);
 
     for (let i = 0; i < count; i += 3) {
+      const p = i / 3;
       const r = Math.random() * 3;
       const a = Math.random() * Math.PI * 2;
 
@@ -58,52 +129,31 @@ function ParticleModel({ onReady }) {
       cloud[i + 1] = Math.random() * 0.6 - 1.5;
       cloud[i + 2] = Math.sin(a) * r * 1.6;
 
+      const spread = 15;
+      const x = (Math.random() - 0.5) * spread;
+      const z = (Math.random() - 0.5) * spread;
+      const y = Math.sin(x * 0.5) + Math.cos(z * 0.5);
 
-
-
-const spread = 15;
-
-const x = (Math.random() - 0.5) * spread;
-const z = (Math.random() - 0.5) * spread;
-
-const y =
-  Math.sin(x * 0.5) +
-  Math.cos(z * 0.5);
-
-dust[i]     = x;
-dust[i + 1] = y;
-dust[i + 2] = z;
-
-
-
+      dust[i] = x;
+      dust[i + 1] = y;
+      dust[i + 2] = z;
 
       const t = i * 0.0004;
       spiral[i] = Math.cos(t) * t * 1.3;
       spiral[i + 1] = (Math.random() - 0.5) * 1;
       spiral[i + 2] = Math.sin(t) * t * 1.3;
 
-// TORUS RING FIELD
-const spreadXY = 20;
-const spreadZ = 25;
+      const spreadXY = 20;
+      const spreadZ = 25;
+      explosion[i] = (Math.random() - 0.5) * spreadXY;
+      explosion[i + 1] = (Math.random() - 0.5) * spreadXY;
+      explosion[i + 2] = (Math.random() - 0.5) * spreadZ;
 
-explosion[i]     = (Math.random() - 0.5) * spreadXY;
-explosion[i + 1] = (Math.random() - 0.5) * spreadXY;
-explosion[i + 2] = (Math.random() - 0.5) * spreadZ;
+      const wave =
+        Math.sin(explosion[i] * 0.3) + Math.cos(explosion[i + 2] * 0.3);
+      explosion[i + 1] += wave * 1.2;
 
-// add wave distortion for cool shape
-const wave =
-  Math.sin(explosion[i] * 0.3) +
-  Math.cos(explosion[i + 2] * 0.3);
-
-explosion[i + 1] += wave * 1.2;
-
-
-
-
-
-
-
-
+      floatPhase[p] = Math.random() * Math.PI * 2;
     }
 
     const geometry = new THREE.BufferGeometry();
@@ -113,17 +163,15 @@ explosion[i + 1] += wave * 1.2;
     const dustColors = new Float32Array(count);
     const explosionColors = new Float32Array(count);
 
-    // Keep cloud + all GLB model stages in the original tone.
-    // Apply new colors only to non-model particle fields.
     const stageColors = [
-      new THREE.Color("#e699ff"), // cloud: original
-      new THREE.Color("#e699ff"), // model1 (.glb): original
-      new THREE.Color("#ffb36b"), // dust: warm amber
-      new THREE.Color("#e699ff"), // model2 (.glb): original
-      new THREE.Color("#8ea6ff"), // spiral: electric blue
-      new THREE.Color("#e699ff"), // model3 (.glb): original
-      new THREE.Color("#ff77cf"), // explosion: neon magenta
-      new THREE.Color("#e699ff"), // model4 (.glb): original
+      new THREE.Color("#e699ff"),
+      new THREE.Color("#e699ff"),
+      new THREE.Color("#ffb36b"),
+      new THREE.Color("#e699ff"),
+      new THREE.Color("#8ea6ff"),
+      new THREE.Color("#e699ff"),
+      new THREE.Color("#ff77cf"),
+      new THREE.Color("#e699ff"),
     ];
 
     const dustPalette = [
@@ -145,11 +193,10 @@ explosion[i + 1] += wave * 1.2;
     const mixedColor = new THREE.Color();
 
     for (let i = 0; i < count; i += 3) {
+      const p = i / 3;
       colors[i] = stageColors[0].r;
       colors[i + 1] = stageColors[0].g;
       colors[i + 2] = stageColors[0].b;
-
-      const p = i / 3;
 
       const dSeedA = fract(Math.sin(p * 12.9898) * 43758.5453);
       const dSeedB = fract(Math.sin((p + 29) * 78.233) * 23421.631);
@@ -186,8 +233,14 @@ explosion[i + 1] += wave * 1.2;
 
     geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
 
+    if (geometryRef.current) geometryRef.current.dispose();
+
     geometryRef.current = geometry;
-    pointsRef.current.geometry = geometry;
+    floatPhaseRef.current = floatPhase;
+
+    if (pointsRef.current) {
+      pointsRef.current.geometry = geometry;
+    }
 
     shapesRef.current = [
       cloud,
@@ -203,55 +256,57 @@ explosion[i + 1] += wave * 1.2;
     dustColorsRef.current = dustColors;
     explosionColorsRef.current = explosionColors;
 
-    ScrollTrigger.create({
-      trigger: "body",
+    const trigger = ScrollTrigger.create({
+      trigger: document.body,
       start: "top top",
       end: "bottom bottom",
       scrub: true,
-      onUpdate: (self) => (scrollProgress.current = self.progress),
+      onUpdate: (self) => {
+        scrollProgress.current = self.progress;
+      },
     });
 
     if (!readySentRef.current) {
       readySentRef.current = true;
       onReady?.();
     }
-  }, []);
+
+    return () => {
+      trigger.kill();
+      geometry.dispose();
+    };
+  }, [m1.scene, m2.scene, m3.scene, m4.scene, onReady]);
 
   useFrame((state) => {
-    if (!geometryRef.current) return;
+    if (!geometryRef.current || !pointsRef.current || !floatPhaseRef.current) return;
     if (!shapesRef.current.length) return;
 
     const shapes = shapesRef.current;
     const pos = geometryRef.current.attributes.position.array;
     const col = geometryRef.current.attributes.color.array;
+    const phase = floatPhaseRef.current;
 
-    smoothScroll.current = THREE.MathUtils.lerp(
+    smoothScroll.current = lerp(
       smoothScroll.current,
       scrollProgress.current,
-      0.06
+      quality.scrollLerp
     );
 
     const progress = smoothScroll.current;
-
-    const segments = 8;
-    const segmentSize = 1 / segments;
+    const segmentSize = 1 / SEGMENTS;
 
     let stage = Math.floor(progress / segmentSize);
-    stage = Math.min(stage, segments - 1);
+    stage = Math.min(stage, SEGMENTS - 1);
 
     const segmentStart = stage * segmentSize;
     const segmentProgress = (progress - segmentStart) / segmentSize;
 
-    const holdAmount = 0.35;
-
     let morphProgress =
-      segmentProgress < holdAmount
+      segmentProgress < HOLD_AMOUNT
         ? 0
-        : (segmentProgress - holdAmount) / (1 - holdAmount);
+        : (segmentProgress - HOLD_AMOUNT) / (1 - HOLD_AMOUNT);
 
-    if (stage === 4) {
-      morphProgress = Math.pow(morphProgress, 2.0);
-    }
+    if (stage === 4) morphProgress = morphProgress * morphProgress;
 
     const from = shapes[Math.min(stage, shapes.length - 1)];
     const to = shapes[Math.min(stage + 1, shapes.length - 1)];
@@ -262,73 +317,74 @@ explosion[i + 1] += wave * 1.2;
     const toColor = stageColors[Math.min(stage + 1, stageColors.length - 1)];
 
     const time = state.clock.elapsedTime;
-
-    const isModelStage =
-      stage === 1 || stage === 3 || stage === 5 || stage === 7;
+    const isModelStage = stage === 1 || stage === 3 || stage === 5 || stage === 7;
+    const nextStage = stage + 1;
+    const invMorph = 1 - morphProgress;
+    const twinkle = 0.92 + Math.sin(time * 1.6) * 0.08;
+    const updateColors = frameCount.current % quality.colorStride === 0;
+    frameCount.current += 1;
 
     for (let i = 0; i < pos.length; i += 3) {
-      const x = THREE.MathUtils.lerp(from[i], to[i], morphProgress);
-      const y = THREE.MathUtils.lerp(from[i + 1], to[i + 1], morphProgress);
-      const z = THREE.MathUtils.lerp(from[i + 2], to[i + 2], morphProgress);
+      const p = i / 3;
 
-     const float = !isModelStage
-  ? Math.sin(time * 1.2 + i * 0.02) * 0.06
-  : 0;
+      const x = from[i] * invMorph + to[i] * morphProgress;
+      const y = from[i + 1] * invMorph + to[i + 1] * morphProgress;
+      const z = from[i + 2] * invMorph + to[i + 2] * morphProgress;
 
+      const floatY = !isModelStage
+        ? Math.sin(time * 1.2 + phase[p]) * quality.floatAmplitude
+        : 0;
 
       pos[i] = x;
-      pos[i + 1] = y + float;
+      pos[i + 1] = y + floatY;
       pos[i + 2] = z;
 
-      // Smoothly blend colors across shape transitions with galaxy tint variation.
-      const fromR =
-        stage === 2 ? dustColors[i] : stage === 6 ? explosionColors[i] : fromColor.r;
-      const fromG =
-        stage === 2
-          ? dustColors[i + 1]
-          : stage === 6
-          ? explosionColors[i + 1]
-          : fromColor.g;
-      const fromB =
-        stage === 2
-          ? dustColors[i + 2]
-          : stage === 6
-          ? explosionColors[i + 2]
-          : fromColor.b;
+      if (updateColors) {
+        const fromR =
+          stage === 2 ? dustColors[i] : stage === 6 ? explosionColors[i] : fromColor.r;
+        const fromG =
+          stage === 2
+            ? dustColors[i + 1]
+            : stage === 6
+            ? explosionColors[i + 1]
+            : fromColor.g;
+        const fromB =
+          stage === 2
+            ? dustColors[i + 2]
+            : stage === 6
+            ? explosionColors[i + 2]
+            : fromColor.b;
 
-      const nextStage = stage + 1;
-      const toR =
-        nextStage === 2
-          ? dustColors[i]
-          : nextStage === 6
-          ? explosionColors[i]
-          : toColor.r;
-      const toG =
-        nextStage === 2
-          ? dustColors[i + 1]
-          : nextStage === 6
-          ? explosionColors[i + 1]
-          : toColor.g;
-      const toB =
-        nextStage === 2
-          ? dustColors[i + 2]
-          : nextStage === 6
-          ? explosionColors[i + 2]
-          : toColor.b;
+        const toR =
+          nextStage === 2
+            ? dustColors[i]
+            : nextStage === 6
+            ? explosionColors[i]
+            : toColor.r;
+        const toG =
+          nextStage === 2
+            ? dustColors[i + 1]
+            : nextStage === 6
+            ? explosionColors[i + 1]
+            : toColor.g;
+        const toB =
+          nextStage === 2
+            ? dustColors[i + 2]
+            : nextStage === 6
+            ? explosionColors[i + 2]
+            : toColor.b;
 
-      const twinkle = 0.9 + Math.sin(time * 1.6 + i * 0.015) * 0.1;
-      col[i] = THREE.MathUtils.lerp(fromR, toR, morphProgress) * twinkle;
-      col[i + 1] = THREE.MathUtils.lerp(fromG, toG, morphProgress) * twinkle;
-      col[i + 2] = THREE.MathUtils.lerp(fromB, toB, morphProgress) * twinkle;
+        col[i] = (fromR * invMorph + toR * morphProgress) * twinkle;
+        col[i + 1] = (fromG * invMorph + toG * morphProgress) * twinkle;
+        col[i + 2] = (fromB * invMorph + toB * morphProgress) * twinkle;
+      }
     }
 
     geometryRef.current.attributes.position.needsUpdate = true;
-    geometryRef.current.attributes.color.needsUpdate = true;
+    if (updateColors) geometryRef.current.attributes.color.needsUpdate = true;
 
     const isMobile = viewport.width < 6;
-
-    let baseY = -viewport.height * 0.05;
-
+    const baseY = -viewport.height * 0.05;
     const rightOffset = viewport.width * 0.22;
     const leftOffset = viewport.width * 0.32;
 
@@ -338,29 +394,25 @@ explosion[i + 1] += wave * 1.2;
     if (stage === 1 || stage === 5) currentTargetX = rightOffset;
     if (stage === 3 || stage === 7) currentTargetX = -leftOffset;
 
-    if (stage + 1 === 1 || stage + 1 === 5) nextTargetX = rightOffset;
-    if (stage + 1 === 3 || stage + 1 === 7) nextTargetX = -leftOffset;
+    if (nextStage === 1 || nextStage === 5) nextTargetX = rightOffset;
+    if (nextStage === 3 || nextStage === 7) nextTargetX = -leftOffset;
 
-    const blendedX = THREE.MathUtils.lerp(
-      currentTargetX,
-      nextTargetX,
-      morphProgress
-    );
+    const blendedX = lerp(currentTargetX, nextTargetX, morphProgress);
 
-    pointsRef.current.position.x = THREE.MathUtils.lerp(
+    pointsRef.current.position.x = lerp(
       pointsRef.current.position.x,
       isMobile ? 0 : blendedX,
-      0.08
+      quality.positionLerp
     );
 
-    pointsRef.current.position.y = THREE.MathUtils.lerp(
+    pointsRef.current.position.y = lerp(
       pointsRef.current.position.y,
       baseY,
-      0.08
+      quality.positionLerp
     );
 
     if (isModelStage) {
-      pointsRef.current.rotation.y += 0.010;
+      pointsRef.current.rotation.y += quality.rotationSpeed;
     }
 
     const s = isMobile ? 0.9 : 1;
@@ -381,52 +433,61 @@ explosion[i + 1] += wave * 1.2;
   );
 }
 
+MODEL_URLS.forEach((url) => {
+  useGLTF.preload(url);
+});
+
 export default function App({ onReady }) {
+  const [quality, setQuality] = useState(() => getQualitySettings());
+
+  useEffect(() => {
+    let rafId = null;
+
+    const onResize = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        setQuality(getQualitySettings());
+      });
+    };
+
+    window.addEventListener("resize", onResize, { passive: true });
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", onResize);
+    };
+  }, []);
+
   return (
     <div style={{ background: "#000" }}>
       <div style={{ height: "900vh", position: "relative" }}>
         <Canvas
-  style={{
-    position: "sticky",
-    top: 0,
-    width: "100vw",
-    height: "100vh",
-    display: "block",
-  }}
-
-
+          style={{
+            position: "sticky",
+            top: 0,
+            width: "100vw",
+            height: "100vh",
+            display: "block",
+          }}
+          dpr={quality.dpr}
+          gl={{
+            antialias: false,
+            alpha: false,
+            powerPreference: "high-performance",
+            stencil: false,
+          }}
           camera={{ position: [2.6, 0.8, 4], fov: 50 }}
         >
+          <ambientLight intensity={0.25} />
 
+          <directionalLight position={[-2, 9, -1]} intensity={1.4} color="#fe6344" />
+          <directionalLight position={[4, -2, -6]} intensity={0.7} color="#6b7cff" />
+          <directionalLight position={[0, 3, 6]} intensity={0.5} />
 
-<ambientLight intensity={0.25} />
+          <AsteroidField />
+          <ParticleModel onReady={onReady} quality={quality} />
 
-<directionalLight
-  position={[-2, 9, -1]}
-  intensity={1.4}
-  color="#fe6344"
-/>
-
-<directionalLight
-  position={[4, -2, -6]}
-  intensity={0.7}
-  color="#6b7cff"
-/>
-
-<directionalLight
-  position={[0, 3, 6]}
-  
-  intensity={0.5}
-/>
-
-
-
-
-
-        <AsteroidField />
-          <ParticleModel onReady={onReady} />
-          <EffectComposer>
-            <Bloom intensity={0.1} luminanceThreshold={0} />
+          <EffectComposer multisampling={0} disableNormalPass>
+            <Bloom intensity={quality.bloom} luminanceThreshold={0} />
           </EffectComposer>
         </Canvas>
       </div>

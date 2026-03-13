@@ -123,7 +123,7 @@ explosion[i + 2] = (major + minor * Math.cos(v)) * Math.sin(u);
       scrub: true,
       onUpdate: (self) => (scrollProgress.current = self.progress),
     });
-  }, []);
+  }, [m1.scene, m2.scene, m3.scene, m4.scene]);
 
   useFrame((state) => {
     if (!geometryRef.current) return;

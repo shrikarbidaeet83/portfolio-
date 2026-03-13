@@ -97,6 +97,12 @@ const aboutBlocks = [
     isProjects: true,
     projects: [
       {
+        name: "RAHRI - Customer Service Management System (CSM)",
+        summary: "Modern CSM web application.",
+        tech: "React | Next.js | JavaScript | TypeScript | Tailwind CSS | GitHub",
+        live: "https://rahri.vercel.app/",
+      },
+      {
         name: "Purple Onion Restaurant",
         summary:
           "Responsive restaurant website with modern UI and optimized performance.",
@@ -109,13 +115,6 @@ const aboutBlocks = [
           "Professional business website with responsive layout and clean user experience.",
         tech: "HTML, CSS, Bootstrap, JavaScript",
         live: "https://www.arrowplumbing.net/",
-      },
-      {
-        name: "Next.js Project - Current",
-        summary:
-          "Modern web application focused on scalable frontend architecture.",
-        tech: "Next.js, React.js",
-        live: "Coming Soon",
       },
     ],
   },
@@ -172,6 +171,19 @@ export default function TextOverlay() {
             <span>blender</span>
             <span>adobe softwares</span>
           </div>
+          <div className="hero-cta">
+            <a href="#projects">View Projects</a>
+            <a href="/resume.pdf" download>
+              Download Resume
+            </a>
+            <a
+              href="https://github.com/shrikarbide"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              GitHub Profile
+            </a>
+          </div>
         </header>
       </div>
 
@@ -179,6 +191,7 @@ export default function TextOverlay() {
         <section
           key={block.title}
           className={`overlay-section ${block.offsetClass} ${block.side}`}
+          id={block.title === "PROJECTS" ? "projects" : undefined}
         >
           <div
             className="overlay-card"

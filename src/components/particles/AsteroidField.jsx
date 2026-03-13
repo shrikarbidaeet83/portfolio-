@@ -1,4 +1,4 @@
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
@@ -24,12 +24,17 @@ function AsteroidDust({ count = 160, size = 0.025, color = "#ffab36" }) {
   const circleTexture = useMemo(() => createCircleTexture(), []);
 
   const positions = useMemo(() => {
+    const pseudo = (seed) => {
+      const value = Math.sin(seed * 127.1) * 43758.5453;
+      return value - Math.floor(value);
+    };
+
     const arr = new Float32Array(count * 3);
 
     for (let i = 0; i < count; i++) {
-      const r = 1.7 + Math.random() * 0.5;
-      const a = Math.random() * Math.PI * 2;
-      const h = (Math.random() - 0.5) * 0.6;
+      const r = 1.7 + pseudo(i + 1) * 0.5;
+      const a = pseudo(i + 37) * Math.PI * 2;
+      const h = (pseudo(i + 101) - 0.5) * 0.6;
 
       arr[i * 3] = Math.cos(a) * r;
       arr[i * 3 + 1] = h;
@@ -70,6 +75,7 @@ function AsteroidDust({ count = 160, size = 0.025, color = "#ffab36" }) {
 
 /* ASTEROID */
 function Asteroid({
+  scrollRef,
   baseY,
   x = -4,
   z = -1,
@@ -82,7 +88,7 @@ function Asteroid({
   useFrame((state) => {
     if (!ref.current) return;
 
-    const scroll = window.scrollY * 0.01;
+    const scroll = scrollRef.current * 0.01;
     const t = state.clock.elapsedTime;
 
     ref.current.position.set(
@@ -116,12 +122,52 @@ function Asteroid({
 
 
 export default function AsteroidField() {
+  const scrollRef = useRef(0);
+
+  useEffect(() => {
+    const onScroll = () => {
+      scrollRef.current = window.scrollY || 0;
+    };
+
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
     <>
-    <Asteroid baseY={-8} x={-7} size={1.7} color="#f5bc5f" dustColor="#ffab36" />
-<Asteroid baseY={-20} x={4} size={1.2} color="#982727" dustColor="#ffd3c4" />
-<Asteroid baseY={-45} x={-16} size={1.4} color="#666565" dustColor="#a5e7ff" />
-<Asteroid baseY={-55} x={3} size={0.6} color="#70056c" dustColor="#ffffff" />
+      <Asteroid
+        scrollRef={scrollRef}
+        baseY={-8}
+        x={-7}
+        size={1.7}
+        color="#f5bc5f"
+        dustColor="#ffab36"
+      />
+      <Asteroid
+        scrollRef={scrollRef}
+        baseY={-20}
+        x={4}
+        size={1.2}
+        color="#982727"
+        dustColor="#ffd3c4"
+      />
+      <Asteroid
+        scrollRef={scrollRef}
+        baseY={-45}
+        x={-16}
+        size={1.4}
+        color="#666565"
+        dustColor="#a5e7ff"
+      />
+      <Asteroid
+        scrollRef={scrollRef}
+        baseY={-55}
+        x={3}
+        size={0.6}
+        color="#70056c"
+        dustColor="#ffffff"
+      />
 
     </>
   );
