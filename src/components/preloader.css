@@ -92,6 +92,28 @@
   }
 }
 
+@media (max-width: 768px) {
+  .loading-text {
+    margin-bottom: 28px;
+    font-size: 32px;
+    letter-spacing: 1px;
+  }
+
+  .marquee {
+    width: min(84vw, 320px);
+    height: 46px;
+  }
+
+  .progress-wrap {
+    margin-top: 14px;
+  }
+
+  .progress-text {
+    font-size: 12px;
+    letter-spacing: 1.4px;
+  }
+}
+
 @keyframes dots-blink {
   0%,
   100% {
