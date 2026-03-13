@@ -5,7 +5,7 @@ import TextOverlay from "./components/particles/TextOverlay";
 import Preloader from "./components/Preloader";
 import { useEffect, useState } from "react";
 
-const MIN_PRELOADER_MS = 3000;
+const MIN_PRELOADER_MS = 5000;
 
 export default function App() {
   const [sceneReady, setSceneReady] = useState(false);
@@ -29,6 +29,15 @@ export default function App() {
 
     return () => clearTimeout(timer);
   }, [sceneReady, minTimeElapsed]);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = showPreloader ? "hidden" : "";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showPreloader]);
 
   return (
     <>

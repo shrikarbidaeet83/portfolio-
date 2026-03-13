@@ -7,6 +7,18 @@ import tunnelImg from "../assets/tunnel2.webp";
 
 export default function Preloader({ isReady = false }) {
   const [progress, setProgress] = useState(0);
+  const [runnerLoaded, setRunnerLoaded] = useState(false);
+  const [bullLoaded, setBullLoaded] = useState(false);
+  const [liteMode] = useState(() => {
+    if (typeof window === "undefined" || typeof navigator === "undefined") {
+      return false;
+    }
+    const width = window.innerWidth || 0;
+    const memory = navigator.deviceMemory || 8;
+    const cores = navigator.hardwareConcurrency || 8;
+    return width < 900 || memory <= 6 || cores <= 6;
+  });
+  const spritesReady = liteMode || (runnerLoaded && bullLoaded);
 
   useEffect(() => {
     if (isReady) {
@@ -23,7 +35,7 @@ export default function Preloader({ isReady = false }) {
       const elapsed = performance.now() - start;
       const pct = Math.min(Math.round((elapsed / duration) * 95), 95);
       setProgress((prev) => (pct > prev ? pct : prev));
-    }, 50);
+    }, 80);
 
     return () => {
       clearInterval(timerId);
@@ -38,8 +50,24 @@ export default function Preloader({ isReady = false }) {
 
       <div className="marquee">
         <img className="tunnel" src={tunnelImg} alt="" />
-        <img className="runner" src={runnerGif} alt="" />
-        <img className="bull" src={bullGif} alt="" />
+        {!liteMode && (
+          <img
+            className={`runner ${spritesReady ? "is-running" : ""}`}
+            src={runnerGif}
+            alt=""
+            loading="eager"
+            onLoad={() => setRunnerLoaded(true)}
+          />
+        )}
+        {!liteMode && (
+          <img
+            className={`bull ${spritesReady ? "is-running" : ""}`}
+            src={bullGif}
+            alt=""
+            loading="eager"
+            onLoad={() => setBullLoaded(true)}
+          />
+        )}
       </div>
 
       <div className="progress-wrap">

@@ -16,6 +16,31 @@ ScrollTrigger.config({ ignoreMobileResize: true });
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
+function createSampleIndices(sourcePoints, targetPoints) {
+  const indices = new Uint32Array(targetPoints);
+  const step = sourcePoints / targetPoints;
+
+  for (let i = 0; i < targetPoints; i += 1) {
+    indices[i] = Math.min(sourcePoints - 1, Math.floor(i * step));
+  }
+
+  return indices;
+}
+
+function samplePositions(source, indices) {
+  const sampled = new Float32Array(indices.length * 3);
+
+  for (let i = 0; i < indices.length; i += 1) {
+    const srcIdx = indices[i] * 3;
+    const dstIdx = i * 3;
+    sampled[dstIdx] = source[srcIdx];
+    sampled[dstIdx + 1] = source[srcIdx + 1];
+    sampled[dstIdx + 2] = source[srcIdx + 2];
+  }
+
+  return sampled;
+}
+
 function getQualitySettings() {
   const width = typeof window !== "undefined" ? window.innerWidth : 1366;
   const memory =
@@ -27,42 +52,98 @@ function getQualitySettings() {
       ? navigator.hardwareConcurrency
       : 8;
 
+  const isMobile = width < 900;
   const constrained = memory <= 4 || cores <= 6;
+  const mobileConstrained = isMobile && (memory <= 6 || cores <= 6);
   const veryLargeScreen = width >= 1700;
   const largeScreen = width >= 1280;
 
+  if (mobileConstrained) {
+    return {
+      mobileLite: true,
+      maxPoints: 10000,
+      dpr: [0.75, 0.95],
+      floatAmplitude: 0.03,
+      rotationSpeed: 0.0045,
+      colorStride: 4,
+      particleStride: 3,
+      bloom: 0.02,
+      pointSize: 0.0036,
+      positionLerp: 0.1,
+      scrollLerp: 0.12,
+      showAsteroids: false,
+      scrollHeight: "760vh",
+    };
+  }
+
+  if (isMobile) {
+    return {
+      mobileLite: true,
+      maxPoints: 18000,
+      dpr: [0.9, 1.15],
+      floatAmplitude: 0.04,
+      rotationSpeed: 0.0055,
+      colorStride: 3,
+      particleStride: 3,
+      bloom: 0.045,
+      pointSize: 0.0038,
+      positionLerp: 0.1,
+      scrollLerp: 0.1,
+      showAsteroids: true,
+      scrollHeight: "800vh",
+    };
+  }
+
   if (veryLargeScreen || constrained) {
     return {
-      dpr: [1, 1],
+      mobileLite: false,
+      maxPoints: 42000,
+      dpr: [1, 1.05],
       floatAmplitude: 0.04,
       rotationSpeed: 0.006,
-      colorStride: 2,
-      bloom: 0.06,
+      colorStride: 3,
+      particleStride: 2,
+      bloom: 0.05,
+      pointSize: 0.004,
       positionLerp: 0.1,
       scrollLerp: 0.08,
+      showAsteroids: true,
+      scrollHeight: "900vh",
     };
   }
 
   if (largeScreen) {
     return {
-      dpr: [1, 1.2],
+      mobileLite: false,
+      maxPoints: 55000,
+      dpr: [1, 1.15],
       floatAmplitude: 0.045,
       rotationSpeed: 0.0075,
-      colorStride: 2,
-      bloom: 0.08,
+      colorStride: 3,
+      particleStride: 2,
+      bloom: 0.07,
+      pointSize: 0.004,
       positionLerp: 0.09,
       scrollLerp: 0.08,
+      showAsteroids: true,
+      scrollHeight: "900vh",
     };
   }
 
   return {
-    dpr: [1, 1.4],
+    mobileLite: false,
+    maxPoints: 70000,
+    dpr: [1, 1.25],
     floatAmplitude: 0.055,
     rotationSpeed: 0.01,
-    colorStride: 1,
-    bloom: 0.1,
+    colorStride: 2,
+    particleStride: 2,
+    bloom: 0.09,
+    pointSize: 0.004,
     positionLerp: 0.08,
-    scrollLerp: 0.06,
+    scrollLerp: 0.07,
+    showAsteroids: true,
+    scrollHeight: "900vh",
   };
 }
 
@@ -95,7 +176,7 @@ function ParticleModel({ onReady, quality }) {
 
     const nextFrame = () =>
       new Promise((resolve) => {
-        requestAnimationFrame(() => resolve());
+        setTimeout(resolve, 0);
       });
 
     const getModelPositions = (scene) => {
@@ -116,10 +197,23 @@ function ParticleModel({ onReady, quality }) {
 
       if (rawModels.some((model) => !model) || cancelled) return;
 
-      const model1 = rawModels[0];
-      const model2 = rawModels[1];
-      const model3 = rawModels[2];
-      const model4 = rawModels[3];
+      const sourcePoints = Math.min(
+        ...rawModels.map((model) => Math.floor(model.length / 3)),
+      );
+      const targetPoints = Math.min(sourcePoints, quality.maxPoints);
+
+      let model1 = rawModels[0];
+      let model2 = rawModels[1];
+      let model3 = rawModels[2];
+      let model4 = rawModels[3];
+
+      if (targetPoints < sourcePoints) {
+        const sampledIndices = createSampleIndices(sourcePoints, targetPoints);
+        model1 = samplePositions(rawModels[0], sampledIndices);
+        model2 = samplePositions(rawModels[1], sampledIndices);
+        model3 = samplePositions(rawModels[2], sampledIndices);
+        model4 = samplePositions(rawModels[3], sampledIndices);
+      }
 
       const count = model1.length;
       const totalPoints = count / 3;
@@ -133,7 +227,7 @@ function ParticleModel({ onReady, quality }) {
 
       const isSmallScreen =
         typeof window !== "undefined" ? window.innerWidth < 900 : false;
-      const batchSize = isSmallScreen ? 1800 : 4000;
+      const batchSize = isSmallScreen ? 900 : 2000;
 
       for (let p = 0; p < totalPoints; p += batchSize) {
         const end = Math.min(p + batchSize, totalPoints);
@@ -297,11 +391,13 @@ function ParticleModel({ onReady, quality }) {
         trigger: document.body,
         start: "top top",
         end: "bottom bottom",
-        scrub: true,
+        scrub: 1,
         onUpdate: (self) => {
           scrollProgress.current = self.progress;
         },
       });
+      scrollProgress.current = trigger.progress;
+      smoothScroll.current = trigger.progress;
 
       if (!readySentRef.current) {
         readySentRef.current = true;
@@ -316,7 +412,7 @@ function ParticleModel({ onReady, quality }) {
       if (trigger) trigger.kill();
       if (builtGeometry) builtGeometry.dispose();
     };
-  }, [m1.scene, m2.scene, m3.scene, m4.scene, onReady]);
+  }, [m1.scene, m2.scene, m3.scene, m4.scene, onReady, quality.maxPoints]);
 
   useFrame((state) => {
     if (!geometryRef.current || !pointsRef.current || !floatPhaseRef.current) return;
@@ -332,7 +428,8 @@ function ParticleModel({ onReady, quality }) {
       scrollProgress.current,
       quality.scrollLerp,
     );
-
+    const scrollDelta = Math.abs(scrollProgress.current - smoothScroll.current);
+    if (scrollDelta < 0.0005) smoothScroll.current = scrollProgress.current;
     const progress = smoothScroll.current;
     const segmentSize = 1 / SEGMENTS;
 
@@ -362,67 +459,77 @@ function ParticleModel({ onReady, quality }) {
     const nextStage = stage + 1;
     const invMorph = 1 - morphProgress;
     const twinkle = 0.92 + Math.sin(time * 1.6) * 0.08;
-    const updateColors = frameCount.current % quality.colorStride === 0;
+    const activelyScrolling = scrollDelta > 0.002;
+    const shouldUpdateParticles =
+      activelyScrolling || frameCount.current % quality.particleStride === 0;
+    const updateColors =
+      !activelyScrolling && frameCount.current % quality.colorStride === 0;
     frameCount.current += 1;
 
-    for (let i = 0; i < pos.length; i += 3) {
-      const p = i / 3;
+    if (shouldUpdateParticles) {
+      for (let i = 0; i < pos.length; i += 3) {
+        const p = i / 3;
 
-      const x = from[i] * invMorph + to[i] * morphProgress;
-      const y = from[i + 1] * invMorph + to[i + 1] * morphProgress;
-      const z = from[i + 2] * invMorph + to[i + 2] * morphProgress;
+        const x = from[i] * invMorph + to[i] * morphProgress;
+        const y = from[i + 1] * invMorph + to[i + 1] * morphProgress;
+        const z = from[i + 2] * invMorph + to[i + 2] * morphProgress;
 
-      const floatY = !isModelStage
-        ? Math.sin(time * 1.2 + phase[p]) * quality.floatAmplitude
-        : 0;
+        const floatY = !isModelStage && !activelyScrolling
+          ? Math.sin(time * 1.2 + phase[p]) * quality.floatAmplitude
+          : 0;
 
-      pos[i] = x;
-      pos[i + 1] = y + floatY;
-      pos[i + 2] = z;
+        pos[i] = x;
+        pos[i + 1] = y + floatY;
+        pos[i + 2] = z;
 
-      if (updateColors) {
-        const fromR =
-          stage === 2 ? dustColors[i] : stage === 6 ? explosionColors[i] : fromColor.r;
-        const fromG =
-          stage === 2
-            ? dustColors[i + 1]
-            : stage === 6
-              ? explosionColors[i + 1]
-              : fromColor.g;
-        const fromB =
-          stage === 2
-            ? dustColors[i + 2]
-            : stage === 6
-              ? explosionColors[i + 2]
-              : fromColor.b;
+        if (updateColors) {
+          const fromR =
+            stage === 2
+              ? dustColors[i]
+              : stage === 6
+                ? explosionColors[i]
+                : fromColor.r;
+          const fromG =
+            stage === 2
+              ? dustColors[i + 1]
+              : stage === 6
+                ? explosionColors[i + 1]
+                : fromColor.g;
+          const fromB =
+            stage === 2
+              ? dustColors[i + 2]
+              : stage === 6
+                ? explosionColors[i + 2]
+                : fromColor.b;
 
-        const toR =
-          nextStage === 2
-            ? dustColors[i]
-            : nextStage === 6
-              ? explosionColors[i]
-              : toColor.r;
-        const toG =
-          nextStage === 2
-            ? dustColors[i + 1]
-            : nextStage === 6
-              ? explosionColors[i + 1]
-              : toColor.g;
-        const toB =
-          nextStage === 2
-            ? dustColors[i + 2]
-            : nextStage === 6
-              ? explosionColors[i + 2]
-              : toColor.b;
+          const toR =
+            nextStage === 2
+              ? dustColors[i]
+              : nextStage === 6
+                ? explosionColors[i]
+                : toColor.r;
+          const toG =
+            nextStage === 2
+              ? dustColors[i + 1]
+              : nextStage === 6
+                ? explosionColors[i + 1]
+                : toColor.g;
+          const toB =
+            nextStage === 2
+              ? dustColors[i + 2]
+              : nextStage === 6
+                ? explosionColors[i + 2]
+                : toColor.b;
 
-        col[i] = (fromR * invMorph + toR * morphProgress) * twinkle;
-        col[i + 1] = (fromG * invMorph + toG * morphProgress) * twinkle;
-        col[i + 2] = (fromB * invMorph + toB * morphProgress) * twinkle;
+          col[i] = (fromR * invMorph + toR * morphProgress) * twinkle;
+          col[i + 1] = (fromG * invMorph + toG * morphProgress) * twinkle;
+          col[i + 2] = (fromB * invMorph + toB * morphProgress) * twinkle;
+        }
       }
-    }
 
-    geometryRef.current.attributes.position.needsUpdate = true;
-    if (updateColors) geometryRef.current.attributes.color.needsUpdate = true;
+      geometryRef.current.attributes.position.needsUpdate = true;
+      if (updateColors) geometryRef.current.attributes.color.needsUpdate = true;
+    }
 
     const isMobile = viewport.width < 6;
     const baseY = -viewport.height * 0.05;
@@ -464,7 +571,7 @@ function ParticleModel({ onReady, quality }) {
     <points ref={pointsRef}>
       <bufferGeometry />
       <pointsMaterial
-        size={0.004}
+        size={quality.pointSize}
         vertexColors
         transparent
         blending={THREE.AdditiveBlending}
@@ -500,7 +607,7 @@ export default function App({ onReady }) {
 
   return (
     <div style={{ background: "#000" }}>
-      <div style={{ height: "900vh", position: "relative" }}>
+      <div style={{ height: quality.scrollHeight, position: "relative" }}>
         <Canvas
           style={{
             position: "sticky",
@@ -524,7 +631,7 @@ export default function App({ onReady }) {
           <directionalLight position={[4, -2, -6]} intensity={0.7} color="#6b7cff" />
           <directionalLight position={[0, 3, 6]} intensity={0.5} />
 
-          <AsteroidField />
+          {quality.showAsteroids && <AsteroidField />}
           <ParticleModel onReady={onReady} quality={quality} />
 
           <EffectComposer multisampling={0} disableNormalPass>

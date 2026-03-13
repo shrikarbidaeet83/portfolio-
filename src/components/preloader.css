@@ -32,14 +32,23 @@
 .runner,
 .bull {
   position: absolute;
+  top: 0;
   height: 100%;
-  left: 0;
-  transform: translate3d(110vw, 0, 0);
-  animation: scroll-left 3.2s linear infinite;
+  left: 100%;
+  transform: translate3d(0, 0, 0);
+  animation: scroll-left 3.4s linear infinite;
+  animation-play-state: paused;
   will-change: transform;
   backface-visibility: hidden;
   transform-style: preserve-3d;
   image-rendering: auto;
+  opacity: 0;
+}
+
+.runner.is-running,
+.bull.is-running {
+  animation-play-state: running;
+  opacity: 1;
 }
 
 /* runner behind */
@@ -76,10 +85,10 @@
 
 @keyframes scroll-left {
   0% {
-    transform: translate3d(110vw, 0, 0);
+    left: 100%;
   }
   100% {
-    transform: translate3d(-180px, 0, 0);
+    left: -220px;
   }
 }
 

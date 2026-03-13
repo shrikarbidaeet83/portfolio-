@@ -262,6 +262,19 @@
 }
 
 @media (max-width: 900px) {
+  .overlay-root {
+    height: 800vh;
+  }
+
+  .hero-wrap {
+    align-items: flex-start;
+    padding-top: 12vh;
+  }
+
+  .hero-card {
+    width: min(94vw, 34rem);
+  }
+
   .overlay-section.left,
   .overlay-section.right {
     justify-content: center;
@@ -269,26 +282,77 @@
 
   .overlay-card {
     margin: 0 1rem;
+    width: min(94vw, 36rem);
   }
 
   .overlay-section.offset-1 {
-    margin-top: 30vh;
+    margin-top: 22vh;
   }
 
   .overlay-section.offset-2 {
-    margin-top: 78vh;
+    margin-top: 62vh;
   }
 
   .overlay-section.offset-3 {
-    margin-top: 38vh;
+    margin-top: 30vh;
   }
 
   .overlay-section.offset-4 {
-    margin-top: 74vh;
+    margin-top: 58vh;
   }
 
   .overlay-footer {
     bottom: 2.5vh;
+  }
+}
+
+@media (max-width: 600px) {
+  .overlay-root {
+    height: 760vh;
+  }
+
+  .hero-wrap {
+    padding-top: 10vh;
+  }
+
+  .hero-card {
+    width: 94vw;
+    padding: 1rem 0.9rem;
+  }
+
+  .hero-text {
+    letter-spacing: 0.08rem;
+    line-height: 1.2;
+  }
+
+  .hero-subtitle {
+    max-width: 95%;
+    line-height: 1.55;
+  }
+
+  .overlay-card {
+    margin: 0 0.65rem;
+    padding: 0.9rem 0.8rem;
+  }
+
+  .experience-item {
+    padding: 0.65rem 0.7rem;
+  }
+
+  .overlay-section.offset-1 {
+    margin-top: 18vh;
+  }
+
+  .overlay-section.offset-2 {
+    margin-top: 52vh;
+  }
+
+  .overlay-section.offset-3 {
+    margin-top: 24vh;
+  }
+
+  .overlay-section.offset-4 {
+    margin-top: 48vh;
   }
 }
 
