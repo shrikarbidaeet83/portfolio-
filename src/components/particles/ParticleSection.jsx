@@ -89,6 +89,15 @@ function ParticleModel({ onReady, quality }) {
   const readySentRef = useRef(false);
 
   useEffect(() => {
+    let cancelled = false;
+    let trigger;
+    let builtGeometry;
+
+    const nextFrame = () =>
+      new Promise((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+
     const getModelPositions = (scene) => {
       let mesh;
       scene.traverse((c) => {
@@ -97,183 +106,215 @@ function ParticleModel({ onReady, quality }) {
       return mesh?.geometry?.attributes?.position?.array || null;
     };
 
-    const rawModels = [
-      getModelPositions(m1.scene),
-      getModelPositions(m2.scene),
-      getModelPositions(m3.scene),
-      getModelPositions(m4.scene),
-    ];
+    const buildParticles = async () => {
+      const rawModels = [
+        getModelPositions(m1.scene),
+        getModelPositions(m2.scene),
+        getModelPositions(m3.scene),
+        getModelPositions(m4.scene),
+      ];
 
-    if (rawModels.some((model) => !model)) return undefined;
+      if (rawModels.some((model) => !model) || cancelled) return;
 
-    const model1 = rawModels[0];
-    const model2 = rawModels[1];
-    const model3 = rawModels[2];
-    const model4 = rawModels[3];
+      const model1 = rawModels[0];
+      const model2 = rawModels[1];
+      const model3 = rawModels[2];
+      const model4 = rawModels[3];
 
-    const count = model1.length;
-    const makeBuffer = () => new Float32Array(count);
+      const count = model1.length;
+      const totalPoints = count / 3;
+      const makeBuffer = () => new Float32Array(count);
 
-    const cloud = makeBuffer();
-    const dust = makeBuffer();
-    const spiral = makeBuffer();
-    const explosion = makeBuffer();
-    const floatPhase = new Float32Array(count / 3);
+      const cloud = makeBuffer();
+      const dust = makeBuffer();
+      const spiral = makeBuffer();
+      const explosion = makeBuffer();
+      const floatPhase = new Float32Array(totalPoints);
 
-    for (let i = 0; i < count; i += 3) {
-      const p = i / 3;
-      const r = Math.random() * 3;
-      const a = Math.random() * Math.PI * 2;
+      const isSmallScreen =
+        typeof window !== "undefined" ? window.innerWidth < 900 : false;
+      const batchSize = isSmallScreen ? 1800 : 4000;
 
-      cloud[i] = Math.cos(a) * r * 2;
-      cloud[i + 1] = Math.random() * 0.6 - 1.5;
-      cloud[i + 2] = Math.sin(a) * r * 1.6;
+      for (let p = 0; p < totalPoints; p += batchSize) {
+        const end = Math.min(p + batchSize, totalPoints);
 
-      const spread = 15;
-      const x = (Math.random() - 0.5) * spread;
-      const z = (Math.random() - 0.5) * spread;
-      const y = Math.sin(x * 0.5) + Math.cos(z * 0.5);
+        for (let idx = p; idx < end; idx += 1) {
+          const i = idx * 3;
+          const r = Math.random() * 3;
+          const a = Math.random() * Math.PI * 2;
 
-      dust[i] = x;
-      dust[i + 1] = y;
-      dust[i + 2] = z;
+          cloud[i] = Math.cos(a) * r * 2;
+          cloud[i + 1] = Math.random() * 0.6 - 1.5;
+          cloud[i + 2] = Math.sin(a) * r * 1.6;
 
-      const t = i * 0.0004;
-      spiral[i] = Math.cos(t) * t * 1.3;
-      spiral[i + 1] = (Math.random() - 0.5) * 1;
-      spiral[i + 2] = Math.sin(t) * t * 1.3;
+          const spread = 15;
+          const x = (Math.random() - 0.5) * spread;
+          const z = (Math.random() - 0.5) * spread;
+          const y = Math.sin(x * 0.5) + Math.cos(z * 0.5);
 
-      const spreadXY = 20;
-      const spreadZ = 25;
-      explosion[i] = (Math.random() - 0.5) * spreadXY;
-      explosion[i + 1] = (Math.random() - 0.5) * spreadXY;
-      explosion[i + 2] = (Math.random() - 0.5) * spreadZ;
+          dust[i] = x;
+          dust[i + 1] = y;
+          dust[i + 2] = z;
 
-      const wave =
-        Math.sin(explosion[i] * 0.3) + Math.cos(explosion[i + 2] * 0.3);
-      explosion[i + 1] += wave * 1.2;
+          const t = i * 0.0004;
+          spiral[i] = Math.cos(t) * t * 1.3;
+          spiral[i + 1] = (Math.random() - 0.5) * 1;
+          spiral[i + 2] = Math.sin(t) * t * 1.3;
 
-      floatPhase[p] = Math.random() * Math.PI * 2;
-    }
+          const spreadXY = 20;
+          const spreadZ = 25;
+          explosion[i] = (Math.random() - 0.5) * spreadXY;
+          explosion[i + 1] = (Math.random() - 0.5) * spreadXY;
+          explosion[i + 2] = (Math.random() - 0.5) * spreadZ;
 
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(cloud.slice(), 3));
+          const wave =
+            Math.sin(explosion[i] * 0.3) + Math.cos(explosion[i + 2] * 0.3);
+          explosion[i + 1] += wave * 1.2;
 
-    const colors = new Float32Array(count);
-    const dustColors = new Float32Array(count);
-    const explosionColors = new Float32Array(count);
+          floatPhase[idx] = Math.random() * Math.PI * 2;
+        }
 
-    const stageColors = [
-      new THREE.Color("#e699ff"),
-      new THREE.Color("#e699ff"),
-      new THREE.Color("#ffb36b"),
-      new THREE.Color("#e699ff"),
-      new THREE.Color("#8ea6ff"),
-      new THREE.Color("#e699ff"),
-      new THREE.Color("#ff77cf"),
-      new THREE.Color("#e699ff"),
-    ];
+        if (cancelled) return;
+        await nextFrame();
+      }
 
-    const dustPalette = [
-      new THREE.Color("#7ee3ff"),
-      new THREE.Color("#a7b8ff"),
-      new THREE.Color("#d7a4ff"),
-      new THREE.Color("#ff9ed9"),
-    ];
-
-    const explosionPalette = [
-      new THREE.Color("#6fd8ff"),
-      new THREE.Color("#9a8eff"),
-      new THREE.Color("#c79aff"),
-      new THREE.Color("#ff86cf"),
-      new THREE.Color("#ffd0f6"),
-    ];
-
-    const fract = (n) => n - Math.floor(n);
-    const mixedColor = new THREE.Color();
-
-    for (let i = 0; i < count; i += 3) {
-      const p = i / 3;
-      colors[i] = stageColors[0].r;
-      colors[i + 1] = stageColors[0].g;
-      colors[i + 2] = stageColors[0].b;
-
-      const dSeedA = fract(Math.sin(p * 12.9898) * 43758.5453);
-      const dSeedB = fract(Math.sin((p + 29) * 78.233) * 23421.631);
-      const dSeedC = fract(Math.sin((p + 101) * 37.719) * 15431.197);
-
-      const dPos = dSeedA * (dustPalette.length - 1);
-      const dIdxA = Math.floor(dPos);
-      const dIdxB = Math.min(dIdxA + 1, dustPalette.length - 1);
-      mixedColor.lerpColors(dustPalette[dIdxA], dustPalette[dIdxB], dSeedB);
-      const dIntensity = 0.82 + dSeedC * 0.34;
-
-      dustColors[i] = mixedColor.r * dIntensity;
-      dustColors[i + 1] = mixedColor.g * dIntensity;
-      dustColors[i + 2] = mixedColor.b * dIntensity;
-
-      const eSeedA = fract(Math.sin(p * 5.311) * 92345.123);
-      const eSeedB = fract(Math.sin((p + 53) * 18.127) * 63214.776);
-      const eSeedC = fract(Math.sin((p + 211) * 9.571) * 19753.447);
-
-      const ePos = eSeedA * (explosionPalette.length - 1);
-      const eIdxA = Math.floor(ePos);
-      const eIdxB = Math.min(eIdxA + 1, explosionPalette.length - 1);
-      mixedColor.lerpColors(
-        explosionPalette[eIdxA],
-        explosionPalette[eIdxB],
-        eSeedB,
+      const geometry = new THREE.BufferGeometry();
+      builtGeometry = geometry;
+      geometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(cloud.slice(), 3),
       );
-      const eIntensity = 0.8 + eSeedC * 0.38;
 
-      explosionColors[i] = mixedColor.r * eIntensity;
-      explosionColors[i + 1] = mixedColor.g * eIntensity;
-      explosionColors[i + 2] = mixedColor.b * eIntensity;
-    }
+      const colors = new Float32Array(count);
+      const dustColors = new Float32Array(count);
+      const explosionColors = new Float32Array(count);
 
-    geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+      const stageColors = [
+        new THREE.Color("#e699ff"),
+        new THREE.Color("#e699ff"),
+        new THREE.Color("#ffb36b"),
+        new THREE.Color("#e699ff"),
+        new THREE.Color("#8ea6ff"),
+        new THREE.Color("#e699ff"),
+        new THREE.Color("#ff77cf"),
+        new THREE.Color("#e699ff"),
+      ];
 
-    if (geometryRef.current) geometryRef.current.dispose();
+      const dustPalette = [
+        new THREE.Color("#7ee3ff"),
+        new THREE.Color("#a7b8ff"),
+        new THREE.Color("#d7a4ff"),
+        new THREE.Color("#ff9ed9"),
+      ];
 
-    geometryRef.current = geometry;
-    floatPhaseRef.current = floatPhase;
+      const explosionPalette = [
+        new THREE.Color("#6fd8ff"),
+        new THREE.Color("#9a8eff"),
+        new THREE.Color("#c79aff"),
+        new THREE.Color("#ff86cf"),
+        new THREE.Color("#ffd0f6"),
+      ];
 
-    if (pointsRef.current) {
-      pointsRef.current.geometry = geometry;
-    }
+      const fract = (n) => n - Math.floor(n);
+      const mixedColor = new THREE.Color();
 
-    shapesRef.current = [
-      cloud,
-      model1,
-      dust,
-      model2,
-      spiral,
-      model3,
-      explosion,
-      model4,
-    ];
-    stageColorsRef.current = stageColors;
-    dustColorsRef.current = dustColors;
-    explosionColorsRef.current = explosionColors;
+      for (let p = 0; p < totalPoints; p += batchSize) {
+        const end = Math.min(p + batchSize, totalPoints);
 
-    const trigger = ScrollTrigger.create({
-      trigger: document.body,
-      start: "top top",
-      end: "bottom bottom",
-      scrub: true,
-      onUpdate: (self) => {
-        scrollProgress.current = self.progress;
-      },
-    });
+        for (let idx = p; idx < end; idx += 1) {
+          const i = idx * 3;
+          colors[i] = stageColors[0].r;
+          colors[i + 1] = stageColors[0].g;
+          colors[i + 2] = stageColors[0].b;
 
-    if (!readySentRef.current) {
-      readySentRef.current = true;
-      onReady?.();
-    }
+          const dSeedA = fract(Math.sin(idx * 12.9898) * 43758.5453);
+          const dSeedB = fract(Math.sin((idx + 29) * 78.233) * 23421.631);
+          const dSeedC = fract(Math.sin((idx + 101) * 37.719) * 15431.197);
+
+          const dPos = dSeedA * (dustPalette.length - 1);
+          const dIdxA = Math.floor(dPos);
+          const dIdxB = Math.min(dIdxA + 1, dustPalette.length - 1);
+          mixedColor.lerpColors(dustPalette[dIdxA], dustPalette[dIdxB], dSeedB);
+          const dIntensity = 0.82 + dSeedC * 0.34;
+
+          dustColors[i] = mixedColor.r * dIntensity;
+          dustColors[i + 1] = mixedColor.g * dIntensity;
+          dustColors[i + 2] = mixedColor.b * dIntensity;
+
+          const eSeedA = fract(Math.sin(idx * 5.311) * 92345.123);
+          const eSeedB = fract(Math.sin((idx + 53) * 18.127) * 63214.776);
+          const eSeedC = fract(Math.sin((idx + 211) * 9.571) * 19753.447);
+
+          const ePos = eSeedA * (explosionPalette.length - 1);
+          const eIdxA = Math.floor(ePos);
+          const eIdxB = Math.min(eIdxA + 1, explosionPalette.length - 1);
+          mixedColor.lerpColors(
+            explosionPalette[eIdxA],
+            explosionPalette[eIdxB],
+            eSeedB,
+          );
+          const eIntensity = 0.8 + eSeedC * 0.38;
+
+          explosionColors[i] = mixedColor.r * eIntensity;
+          explosionColors[i + 1] = mixedColor.g * eIntensity;
+          explosionColors[i + 2] = mixedColor.b * eIntensity;
+        }
+
+        if (cancelled) return;
+        await nextFrame();
+      }
+
+      geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+
+      if (cancelled) return;
+
+      if (geometryRef.current && geometryRef.current !== geometry) {
+        geometryRef.current.dispose();
+      }
+
+      geometryRef.current = geometry;
+      floatPhaseRef.current = floatPhase;
+
+      if (pointsRef.current) {
+        pointsRef.current.geometry = geometry;
+      }
+
+      shapesRef.current = [
+        cloud,
+        model1,
+        dust,
+        model2,
+        spiral,
+        model3,
+        explosion,
+        model4,
+      ];
+      stageColorsRef.current = stageColors;
+      dustColorsRef.current = dustColors;
+      explosionColorsRef.current = explosionColors;
+
+      trigger = ScrollTrigger.create({
+        trigger: document.body,
+        start: "top top",
+        end: "bottom bottom",
+        scrub: true,
+        onUpdate: (self) => {
+          scrollProgress.current = self.progress;
+        },
+      });
+
+      if (!readySentRef.current) {
+        readySentRef.current = true;
+        onReady?.();
+      }
+    };
+
+    buildParticles();
 
     return () => {
-      trigger.kill();
-      geometry.dispose();
+      cancelled = true;
+      if (trigger) trigger.kill();
+      if (builtGeometry) builtGeometry.dispose();
     };
   }, [m1.scene, m2.scene, m3.scene, m4.scene, onReady]);
 
