@@ -3,7 +3,7 @@
 import ParticleSection from "./components/particles/ParticleSection";
 import TextOverlay from "./components/particles/TextOverlay";
 import Preloader from "./components/Preloader";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 const MIN_PRELOADER_MS = 5000;
 const READY_SETTLE_MS = 900;
@@ -80,13 +80,17 @@ export default function App() {
     };
   }, [showPreloader]);
 
+  const handleSceneReady = useCallback(() => {
+    setSceneReady(true);
+  }, []);
+
   return (
     <>
       {showPreloader && <Preloader isReady={sceneReady} />}
 
       <div style={{ position: "relative", width: "100%" }}>
-        <ParticleSection onReady={() => setSceneReady(true)} />
-        <TextOverlay />
+        <ParticleSection onReady={handleSceneReady} />
+        {!showPreloader && <TextOverlay />}
       </div>
     </>
   );

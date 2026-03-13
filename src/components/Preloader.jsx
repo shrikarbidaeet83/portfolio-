@@ -29,16 +29,22 @@ export default function Preloader({ isReady = false }) {
     }
 
     // Use a lightweight timer instead of per-frame React updates.
+    // Stop polling once we hit 95% to avoid unnecessary work during later loops.
     const duration = 3000;
     const start = performance.now();
-    const timerId = setInterval(() => {
+    let timerId = 0;
+    timerId = setInterval(() => {
       const elapsed = performance.now() - start;
       const pct = Math.min(Math.round((elapsed / duration) * 95), 95);
+      if (pct >= 95 && timerId) {
+        clearInterval(timerId);
+        timerId = 0;
+      }
       setProgress((prev) => (pct > prev ? pct : prev));
     }, 80);
 
     return () => {
-      clearInterval(timerId);
+      if (timerId) clearInterval(timerId);
     };
   }, [isReady]);
 

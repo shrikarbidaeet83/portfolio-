@@ -206,7 +206,7 @@ function ParticleModel({ onReady, quality }) {
   const m3 = useGLTF("/react.glb");
   const m4 = useGLTF("/project.glb");
 
-  const { viewport } = useThree();
+  const { viewport, gl, scene, camera } = useThree();
 
   const pointsRef = useRef();
   const geometryRef = useRef();
@@ -215,12 +215,19 @@ function ParticleModel({ onReady, quality }) {
   const scrollProgress = useRef(0);
   const smoothScroll = useRef(0);
   const frameCount = useRef(0);
+  const lastStageRef = useRef(-1);
+  const lastMorphRef = useRef(-1);
 
   const shapesRef = useRef([]);
   const stageColorsRef = useRef([]);
   const dustColorsRef = useRef();
   const explosionColorsRef = useRef();
   const readySentRef = useRef(false);
+  const onReadyRef = useRef(onReady);
+
+  useEffect(() => {
+    onReadyRef.current = onReady;
+  }, [onReady]);
 
   useEffect(() => {
     let cancelled = false;
@@ -330,10 +337,9 @@ function ParticleModel({ onReady, quality }) {
 
       const geometry = new THREE.BufferGeometry();
       builtGeometry = geometry;
-      geometry.setAttribute(
-        "position",
-        new THREE.BufferAttribute(cloud.slice(), 3),
-      );
+      const positionAttribute = new THREE.BufferAttribute(cloud.slice(), 3);
+      positionAttribute.setUsage(THREE.DynamicDrawUsage);
+      geometry.setAttribute("position", positionAttribute);
 
       const colors = new Float32Array(count);
       const dustColors = new Float32Array(count);
@@ -414,7 +420,9 @@ function ParticleModel({ onReady, quality }) {
         await nextFrame();
       }
 
-      geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+      const colorAttribute = new THREE.BufferAttribute(colors, 3);
+      colorAttribute.setUsage(THREE.DynamicDrawUsage);
+      geometry.setAttribute("color", colorAttribute);
 
       if (cancelled) return;
 
@@ -455,9 +463,18 @@ function ParticleModel({ onReady, quality }) {
       scrollProgress.current = trigger.progress;
       smoothScroll.current = trigger.progress;
 
+      await nextFrame();
+      if (cancelled) return;
+      if (typeof gl.compileAsync === "function") {
+        await gl.compileAsync(scene, camera);
+      } else {
+        gl.compile(scene, camera);
+      }
+      if (cancelled) return;
+
       if (!readySentRef.current) {
         readySentRef.current = true;
-        onReady?.();
+        onReadyRef.current?.();
       }
     };
 
@@ -468,15 +485,18 @@ function ParticleModel({ onReady, quality }) {
       if (trigger) trigger.kill();
       if (builtGeometry) builtGeometry.dispose();
     };
-  }, [m1.scene, m2.scene, m3.scene, m4.scene, onReady, quality.maxPoints]);
+  }, [m1.scene, m2.scene, m3.scene, m4.scene, quality.maxPoints, gl, scene, camera]);
 
   useFrame((state) => {
     if (!geometryRef.current || !pointsRef.current || !floatPhaseRef.current) return;
     if (!shapesRef.current.length) return;
 
+    const geometry = geometryRef.current;
+    const positionAttr = geometry.attributes.position;
+    const colorAttr = geometry.attributes.color;
     const shapes = shapesRef.current;
-    const pos = geometryRef.current.attributes.position.array;
-    const col = geometryRef.current.attributes.color.array;
+    const pos = positionAttr.array;
+    const col = colorAttr.array;
     const phase = floatPhaseRef.current;
 
     smoothScroll.current = lerp(
@@ -520,71 +540,96 @@ function ParticleModel({ onReady, quality }) {
       activelyScrolling || frameCount.current % quality.particleStride === 0;
     const updateColors =
       !activelyScrolling && frameCount.current % quality.colorStride === 0;
+    const stageUnchanged = stage === lastStageRef.current;
+    const morphUnchanged =
+      Math.abs(morphProgress - lastMorphRef.current) < 0.0001;
+    const skipRedundantMorph =
+      activelyScrolling &&
+      shouldUpdateParticles &&
+      !updateColors &&
+      stageUnchanged &&
+      morphUnchanged;
     frameCount.current += 1;
 
-    if (shouldUpdateParticles) {
-      for (let i = 0, p = 0; i < pos.length; i += 3, p += 1) {
+    if (shouldUpdateParticles && !skipRedundantMorph) {
+      const hasFloat = !isModelStage && !activelyScrolling;
 
-        const x = from[i] * invMorph + to[i] * morphProgress;
-        const y = from[i + 1] * invMorph + to[i + 1] * morphProgress;
-        const z = from[i + 2] * invMorph + to[i + 2] * morphProgress;
+      if (!hasFloat && !updateColors) {
+        for (let i = 0; i < pos.length; i += 3) {
+          pos[i] = from[i] * invMorph + to[i] * morphProgress;
+          pos[i + 1] = from[i + 1] * invMorph + to[i + 1] * morphProgress;
+          pos[i + 2] = from[i + 2] * invMorph + to[i + 2] * morphProgress;
+        }
+      } else if (hasFloat && !updateColors) {
+        for (let i = 0, p = 0; i < pos.length; i += 3, p += 1) {
+          pos[i] = from[i] * invMorph + to[i] * morphProgress;
+          pos[i + 1] =
+            from[i + 1] * invMorph +
+            to[i + 1] * morphProgress +
+            Math.sin(time * 1.2 + phase[p]) * quality.floatAmplitude;
+          pos[i + 2] = from[i + 2] * invMorph + to[i + 2] * morphProgress;
+        }
+      } else {
+        const fromColorArr =
+          stage === 2 ? dustColors : stage === 6 ? explosionColors : null;
+        const toColorArr =
+          nextStage === 2
+            ? dustColors
+            : nextStage === 6
+              ? explosionColors
+              : null;
+        const constFromR = fromColor.r;
+        const constFromG = fromColor.g;
+        const constFromB = fromColor.b;
+        const constToR = toColor.r;
+        const constToG = toColor.g;
+        const constToB = toColor.b;
 
-        const floatY = !isModelStage && !activelyScrolling
-          ? Math.sin(time * 1.2 + phase[p]) * quality.floatAmplitude
-          : 0;
+        if (hasFloat) {
+          for (let i = 0, p = 0; i < pos.length; i += 3, p += 1) {
+            pos[i] = from[i] * invMorph + to[i] * morphProgress;
+            pos[i + 1] =
+              from[i + 1] * invMorph +
+              to[i + 1] * morphProgress +
+              Math.sin(time * 1.2 + phase[p]) * quality.floatAmplitude;
+            pos[i + 2] = from[i + 2] * invMorph + to[i + 2] * morphProgress;
 
-        pos[i] = x;
-        pos[i + 1] = y + floatY;
-        pos[i + 2] = z;
+            const fromR = fromColorArr ? fromColorArr[i] : constFromR;
+            const fromG = fromColorArr ? fromColorArr[i + 1] : constFromG;
+            const fromB = fromColorArr ? fromColorArr[i + 2] : constFromB;
+            const toR = toColorArr ? toColorArr[i] : constToR;
+            const toG = toColorArr ? toColorArr[i + 1] : constToG;
+            const toB = toColorArr ? toColorArr[i + 2] : constToB;
 
-        if (updateColors) {
-          const fromR =
-            stage === 2
-              ? dustColors[i]
-              : stage === 6
-                ? explosionColors[i]
-                : fromColor.r;
-          const fromG =
-            stage === 2
-              ? dustColors[i + 1]
-              : stage === 6
-                ? explosionColors[i + 1]
-                : fromColor.g;
-          const fromB =
-            stage === 2
-              ? dustColors[i + 2]
-              : stage === 6
-                ? explosionColors[i + 2]
-                : fromColor.b;
+            col[i] = (fromR * invMorph + toR * morphProgress) * twinkle;
+            col[i + 1] = (fromG * invMorph + toG * morphProgress) * twinkle;
+            col[i + 2] = (fromB * invMorph + toB * morphProgress) * twinkle;
+          }
+        } else {
+          for (let i = 0; i < pos.length; i += 3) {
+            pos[i] = from[i] * invMorph + to[i] * morphProgress;
+            pos[i + 1] = from[i + 1] * invMorph + to[i + 1] * morphProgress;
+            pos[i + 2] = from[i + 2] * invMorph + to[i + 2] * morphProgress;
 
-          const toR =
-            nextStage === 2
-              ? dustColors[i]
-              : nextStage === 6
-                ? explosionColors[i]
-                : toColor.r;
-          const toG =
-            nextStage === 2
-              ? dustColors[i + 1]
-              : nextStage === 6
-                ? explosionColors[i + 1]
-                : toColor.g;
-          const toB =
-            nextStage === 2
-              ? dustColors[i + 2]
-              : nextStage === 6
-                ? explosionColors[i + 2]
-                : toColor.b;
+            const fromR = fromColorArr ? fromColorArr[i] : constFromR;
+            const fromG = fromColorArr ? fromColorArr[i + 1] : constFromG;
+            const fromB = fromColorArr ? fromColorArr[i + 2] : constFromB;
+            const toR = toColorArr ? toColorArr[i] : constToR;
+            const toG = toColorArr ? toColorArr[i + 1] : constToG;
+            const toB = toColorArr ? toColorArr[i + 2] : constToB;
 
-          col[i] = (fromR * invMorph + toR * morphProgress) * twinkle;
-          col[i + 1] = (fromG * invMorph + toG * morphProgress) * twinkle;
-          col[i + 2] = (fromB * invMorph + toB * morphProgress) * twinkle;
+            col[i] = (fromR * invMorph + toR * morphProgress) * twinkle;
+            col[i + 1] = (fromG * invMorph + toG * morphProgress) * twinkle;
+            col[i + 2] = (fromB * invMorph + toB * morphProgress) * twinkle;
+          }
         }
       }
 
-      geometryRef.current.attributes.position.needsUpdate = true;
-      if (updateColors) geometryRef.current.attributes.color.needsUpdate = true;
+      positionAttr.needsUpdate = true;
+      if (updateColors) colorAttr.needsUpdate = true;
     }
+    lastStageRef.current = stage;
+    lastMorphRef.current = morphProgress;
 
     const isMobile = viewport.width < 6;
     const baseY = -viewport.height * 0.05;
