@@ -141,32 +141,32 @@ export default function AsteroidField() {
         baseY={-8}
         x={-7}
         size={1.7}
-        color="#f5bc5f"
-        dustColor="#ffab36"
+        color="#9c6f46"
+        dustColor="#d9b188"
       />
       <Asteroid
         scrollRef={scrollRef}
         baseY={-20}
         x={4}
         size={1.2}
-        color="#982727"
-        dustColor="#ffd3c4"
+        color="#6a4764"
+        dustColor="#b99ec4"
       />
       <Asteroid
         scrollRef={scrollRef}
         baseY={-45}
         x={-16}
         size={1.4}
-        color="#666565"
-        dustColor="#a5e7ff"
+        color="#7a5e49"
+        dustColor="#c9ad92"
       />
       <Asteroid
         scrollRef={scrollRef}
         baseY={-55}
         x={3}
         size={0.6}
-        color="#70056c"
-        dustColor="#ffffff"
+        color="#8f3343"
+        dustColor="#d79ca7"
       />
 
     </>
