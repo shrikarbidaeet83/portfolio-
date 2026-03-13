@@ -44,12 +44,6 @@ export default function Preloader({ isReady = false }) {
 
       <div className="progress-wrap">
         <p className="progress-text">{Math.round(progress)}%</p>
-        <div className="progress-line">
-          <div
-            className="progress-fill"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
       </div>
     </div>
   );

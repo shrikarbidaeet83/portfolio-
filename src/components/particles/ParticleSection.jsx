@@ -222,7 +222,7 @@ function ParticleModel({ onReady, quality }) {
       mixedColor.lerpColors(
         explosionPalette[eIdxA],
         explosionPalette[eIdxB],
-        eSeedB
+        eSeedB,
       );
       const eIntensity = 0.8 + eSeedC * 0.38;
 
@@ -289,7 +289,7 @@ function ParticleModel({ onReady, quality }) {
     smoothScroll.current = lerp(
       smoothScroll.current,
       scrollProgress.current,
-      quality.scrollLerp
+      quality.scrollLerp,
     );
 
     const progress = smoothScroll.current;
@@ -346,33 +346,33 @@ function ParticleModel({ onReady, quality }) {
           stage === 2
             ? dustColors[i + 1]
             : stage === 6
-            ? explosionColors[i + 1]
-            : fromColor.g;
+              ? explosionColors[i + 1]
+              : fromColor.g;
         const fromB =
           stage === 2
             ? dustColors[i + 2]
             : stage === 6
-            ? explosionColors[i + 2]
-            : fromColor.b;
+              ? explosionColors[i + 2]
+              : fromColor.b;
 
         const toR =
           nextStage === 2
             ? dustColors[i]
             : nextStage === 6
-            ? explosionColors[i]
-            : toColor.r;
+              ? explosionColors[i]
+              : toColor.r;
         const toG =
           nextStage === 2
             ? dustColors[i + 1]
             : nextStage === 6
-            ? explosionColors[i + 1]
-            : toColor.g;
+              ? explosionColors[i + 1]
+              : toColor.g;
         const toB =
           nextStage === 2
             ? dustColors[i + 2]
             : nextStage === 6
-            ? explosionColors[i + 2]
-            : toColor.b;
+              ? explosionColors[i + 2]
+              : toColor.b;
 
         col[i] = (fromR * invMorph + toR * morphProgress) * twinkle;
         col[i + 1] = (fromG * invMorph + toG * morphProgress) * twinkle;
@@ -402,13 +402,13 @@ function ParticleModel({ onReady, quality }) {
     pointsRef.current.position.x = lerp(
       pointsRef.current.position.x,
       isMobile ? 0 : blendedX,
-      quality.positionLerp
+      quality.positionLerp,
     );
 
     pointsRef.current.position.y = lerp(
       pointsRef.current.position.y,
       baseY,
-      quality.positionLerp
+      quality.positionLerp,
     );
 
     if (isModelStage) {
