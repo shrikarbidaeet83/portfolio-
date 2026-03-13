@@ -302,13 +302,15 @@
   }
 
   .overlay-footer {
-    bottom: 2.5vh;
+    bottom: max(2.5vh, env(safe-area-inset-bottom));
+    width: min(94vw, 36rem);
+    padding: 0.9rem 0.9rem calc(0.9rem + env(safe-area-inset-bottom));
   }
 }
 
 @media (max-width: 600px) {
   .overlay-root {
-    height: 760vh;
+    height: 800vh;
   }
 
   .hero-wrap {

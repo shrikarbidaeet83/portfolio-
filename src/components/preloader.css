@@ -85,10 +85,10 @@
 
 @keyframes scroll-left {
   0% {
-    left: 100%;
+    transform: translate3d(0, 0, 0);
   }
   100% {
-    left: -220px;
+    transform: translate3d(calc(-100vw - 220px), 0, 0);
   }
 }
 

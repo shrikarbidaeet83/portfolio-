@@ -10,6 +10,7 @@ import AsteroidField from "../particles/AsteroidField";
 const MODEL_URLS = ["/about.glb", "/model.glb", "/react.glb", "/project.glb"];
 const SEGMENTS = 8;
 const HOLD_AMOUNT = 0.35;
+const LEFT_STAGE_SCALE = 1.35;
 
 gsap.registerPlugin(ScrollTrigger);
 ScrollTrigger.config({ ignoreMobileResize: true });
@@ -19,9 +20,25 @@ const lerp = (a, b, t) => a + (b - a) * t;
 function createSampleIndices(sourcePoints, targetPoints) {
   const indices = new Uint32Array(targetPoints);
   const step = sourcePoints / targetPoints;
+  const used = new Uint8Array(sourcePoints);
+
+  const fract = (n) => n - Math.floor(n);
 
   for (let i = 0; i < targetPoints; i += 1) {
-    indices[i] = Math.min(sourcePoints - 1, Math.floor(i * step));
+    const base = (i + 0.5) * step;
+    const jitterSeed = fract(Math.sin((i + 1) * 12.9898) * 43758.5453);
+    const jitter = (jitterSeed - 0.5) * step * 0.8;
+    let idx = Math.floor(base + jitter);
+    if (idx < 0) idx = 0;
+    if (idx >= sourcePoints) idx = sourcePoints - 1;
+
+    while (used[idx]) {
+      idx += 1;
+      if (idx >= sourcePoints) idx = 0;
+    }
+
+    used[idx] = 1;
+    indices[i] = idx;
   }
 
   return indices;
@@ -39,6 +56,42 @@ function samplePositions(source, indices) {
   }
 
   return sampled;
+}
+
+function scaleAndCenterPositions(source, scale = 1) {
+  const out = new Float32Array(source.length);
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let minZ = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  let maxZ = -Infinity;
+
+  for (let i = 0; i < source.length; i += 3) {
+    const x = source[i];
+    const y = source[i + 1];
+    const z = source[i + 2];
+
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (z < minZ) minZ = z;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+    if (z > maxZ) maxZ = z;
+  }
+
+  const cx = (minX + maxX) * 0.5;
+  const cy = (minY + maxY) * 0.5;
+  const cz = (minZ + maxZ) * 0.5;
+
+  for (let i = 0; i < source.length; i += 3) {
+    out[i] = (source[i] - cx) * scale;
+    out[i + 1] = (source[i + 1] - cy) * scale;
+    out[i + 2] = (source[i + 2] - cz) * scale;
+  }
+
+  return out;
 }
 
 function getQualitySettings() {
@@ -61,14 +114,14 @@ function getQualitySettings() {
   if (mobileConstrained) {
     return {
       mobileLite: true,
-      maxPoints: 10000,
-      dpr: [0.75, 0.95],
+      maxPoints: 12000,
+      dpr: [0.8, 1],
       floatAmplitude: 0.03,
       rotationSpeed: 0.0045,
       colorStride: 4,
       particleStride: 3,
-      bloom: 0.02,
-      pointSize: 0.0036,
+      bloom: 0.03,
+      pointSize: 0.0044,
       positionLerp: 0.1,
       scrollLerp: 0.12,
       showAsteroids: false,
@@ -79,14 +132,14 @@ function getQualitySettings() {
   if (isMobile) {
     return {
       mobileLite: true,
-      maxPoints: 18000,
-      dpr: [0.9, 1.15],
+      maxPoints: 16000,
+      dpr: [0.85, 1],
       floatAmplitude: 0.04,
       rotationSpeed: 0.0055,
       colorStride: 3,
       particleStride: 3,
-      bloom: 0.045,
-      pointSize: 0.0038,
+      bloom: 0.035,
+      pointSize: 0.0042,
       positionLerp: 0.1,
       scrollLerp: 0.1,
       showAsteroids: true,
@@ -214,6 +267,9 @@ function ParticleModel({ onReady, quality }) {
         model3 = samplePositions(rawModels[2], sampledIndices);
         model4 = samplePositions(rawModels[3], sampledIndices);
       }
+
+      model2 = scaleAndCenterPositions(model2, LEFT_STAGE_SCALE);
+      model4 = scaleAndCenterPositions(model4, LEFT_STAGE_SCALE);
 
       const count = model1.length;
       const totalPoints = count / 3;
@@ -467,8 +523,7 @@ function ParticleModel({ onReady, quality }) {
     frameCount.current += 1;
 
     if (shouldUpdateParticles) {
-      for (let i = 0; i < pos.length; i += 3) {
-        const p = i / 3;
+      for (let i = 0, p = 0; i < pos.length; i += 3, p += 1) {
 
         const x = from[i] * invMorph + to[i] * morphProgress;
         const y = from[i + 1] * invMorph + to[i + 1] * morphProgress;

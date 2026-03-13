@@ -173,11 +173,11 @@ export default function TextOverlay() {
           </div>
           <div className="hero-cta">
             <a href="#projects">View Projects</a>
-            <a href="/resume.pdf" download>
+            <a href="/resume/ShrikarBidaeetResume.pdf" download>
               Download Resume
             </a>
             <a
-              href="https://github.com/shrikarbide"
+              href="https://github.com/shrikarbidaeet83?tab=repositories"
               target="_blank"
               rel="noopener noreferrer"
             >
